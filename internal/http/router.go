@@ -1,0 +1,82 @@
+package http
+
+import (
+	"context"
+	"io/fs"
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	assets "github.com/miage-if-gin/bons-comptes-tp/web"
+	"gorm.io/gorm"
+
+	"github.com/miage-if-gin/bons-comptes-tp/internal/config"
+	"github.com/miage-if-gin/bons-comptes-tp/internal/db"
+	"github.com/miage-if-gin/bons-comptes-tp/internal/service"
+	"github.com/miage-if-gin/bons-comptes-tp/internal/web"
+)
+
+type Deps struct {
+	Cfg      config.Config
+	DB       *gorm.DB
+	Renderer *web.Renderer
+	Accounts *service.AccountService
+	Auth     *service.AuthService
+	Expenses *service.ExpenseService
+	Closure  *service.ClosureService
+}
+
+func NewRouter(d Deps) *gin.Engine {
+	r := gin.Default()
+	// Premier middleware : il englobe le temps de tous les suivants.
+	r.Use(mesurer())
+
+	r.Use(chargerCompte(d))
+
+	statiques, err := fs.Sub(assets.Static, "static")
+	if err == nil {
+		r.StaticFS("/static", http.FS(statiques))
+	}
+
+	registerHealth(r, d)
+	registerMetrics(r)
+	registerPages(r, d)
+	registerAuth(r, d)
+	registerLogin(r, d)
+
+	prive := r.Group("/", exigerCompte())
+
+	registerWallets(prive, d)
+	registerExpenses(prive, d)
+	registerClosure(prive, d)
+
+	return r
+}
+
+func registerPages(r *gin.Engine, d Deps) {
+	r.GET("/", func(c *gin.Context) {
+		d.Renderer.Render(c, http.StatusOK, "home.html", gin.H{
+			"Title": "Accueil",
+		})
+	})
+}
+
+func registerHealth(r *gin.Engine, d Deps) {
+	r.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	r.GET("/readyz", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+
+		if err := db.Ping(ctx, d.DB); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"status": "degraded",
+				"db":     "unreachable",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "db": "ok"})
+	})
+}
