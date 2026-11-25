@@ -1,4 +1,4 @@
-.PHONY: help setup up down reset run psql fmt vet test tidy
+.PHONY: help setup up down reset run psql fmt vet test tidy seed m1 m2 m3 m4 point bonus
 
 # Charge le .env et exporte ses variables vers les commandes ci-dessous.
 ifneq (,$(wildcard .env))
@@ -7,7 +7,7 @@ export
 endif
 
 help: ## Affiche cette aide
-	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-8s\033[0m %s\n", $$1, $$2}'
 
 setup: ## Première installation
@@ -44,3 +44,20 @@ tidy: ## Nettoie go.mod et go.sum
 
 seed: ## Peuple la base de données de démonstration
 	go run ./cmd/seed
+point: ## Ou j'en suis : une ligne par mission
+	@bash scripts/point.sh
+
+m1: ## Mission 1 - le handler et les codes HTTP
+	go test ./internal/http/ -count=1 -v -run Cloture
+
+m2: ## Mission 2 - qui a paye combien
+	go test ./internal/repository/ -count=1 -v -run PaidByAccount
+
+m3: ## Mission 3 - les soldes
+	go test ./internal/service/ -count=1 -v -run CalculerSoldes
+
+m4: ## Mission 4 - les virements
+	go test ./internal/service/ -count=1 -v -run 'MinimiserVirements_(CasSimple|Aleatoire)'
+
+bonus: ## Bonus A - les paires exactes
+	go test ./internal/service/ -count=1 -v -run MinimiserVirements_PairesExactes
