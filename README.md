@@ -38,11 +38,27 @@ docker exec -it bons-comptes-tp-db psql -U bonscomptes -d bonscomptes \
 Ouvre un porte-monnaie, puis **Soldes et clôture** : la page est vide. À toi
 de la remplir.
 
+Tout tourne sur ta machine : ton conteneur PostgreSQL, tes 5 000 dépenses.
+Rien n'est partagé avec les autres participants, et aucun réseau de
+l'université n'est nécessaire.
+
 ### Si quelque chose ne démarre pas
 
-**Le port 5432 ou 8080 est déjà pris** — un autre PostgreSQL ou un autre
-serveur tourne. Arrête-le, ou change le port dans `docker-compose.yml` et
-dans le `.env`.
+**Le port 8080 est déjà pris** (`bind: address already in use`) — un autre
+serveur tourne. Change `PORT` **dans le fichier `.env`**, puis relance.
+Attention : `PORT=8090 make run` ne marche pas, car le `Makefile` charge le
+`.env` et sa valeur l'emporte sur celle de la ligne de commande.
+
+**Le port 5432 est déjà pris** — un autre PostgreSQL tourne. Arrête-le, ou
+change le port dans `docker-compose.yml` *et* dans le `.env`.
+
+**« The container name is already in use »** — un conteneur d'une session
+précédente traîne :
+
+```bash
+docker rm -f bons-comptes-tp-db bons-comptes-tp-adminer
+make up
+```
 
 **Sur Windows**, `make` n'existe pas. Travaille dans WSL 2, ou remplace les
 cibles par leurs commandes :
@@ -53,6 +69,7 @@ cibles par leurs commandes :
 | `make run` | `go run ./cmd/server` |
 | `make seed` | `go run ./cmd/seed` |
 | `make test` | `go test ./... -race -cover` |
+| `make point` | `bash scripts/point.sh` |
 
 Sans `make`, il faut exporter les variables du `.env` à la main : c'est le
 `Makefile` qui les charge.
@@ -65,22 +82,30 @@ Quatre fonctions à écrire, dans cet ordre. Chacune rend la page de clôture
 un peu plus complète.
 
 ```bash
-grep -rn "TODO" --include="*.go" .
+make point
 ```
 
-| | Fichier | Quoi |
-|---|---|---|
-| 1 | `internal/http/handlers_closure.go` | le handler et la traduction des erreurs |
-| 2 | `internal/repository/settlement.go` | le SQL qui dit qui a payé combien |
-| 3 | `internal/service/closure.go` | le calcul des soldes |
-| 4 | `internal/service/closure.go` | la minimisation des virements |
+Une ligne par mission, verte ou rouge. Au départ, tout est rouge : c'est ton
+tableau de bord pendant les deux heures.
+
+| | Fichier | Quoi | Vérifier |
+|---|---|---|---|
+| 1 | `internal/http/handlers_closure.go` | le handler et les codes HTTP | `make m1` |
+| 2 | `internal/repository/settlement.go` | le SQL qui dit qui a payé combien | `make m2` |
+| 3 | `internal/service/closure.go` | le calcul des soldes | `make m3` |
+| 4 | `internal/service/closure.go` | la minimisation des virements | `make m4` |
+
+Pour retrouver le travail dans le code :
+
+```bash
+grep -rn "TODO" --include="*.go" .
+```
 
 **Les tests sont la spécification.** Ils disent précisément ce qui est
 attendu, y compris les cas limites. Lis-les avant de coder.
 
-```bash
-make test
-```
+Une mission est finie quand sa ligne passe au vert **et** que la page a
+changé dans le navigateur. Les deux comptent.
 
 Le sujet du TP détaille chaque mission.
 
@@ -123,13 +148,20 @@ et un handler n'écrit jamais de SQL.
 ## Commandes
 
 ```
-make help     liste toutes les commandes
+make point    où j'en suis : une ligne par mission
+make m1 … m4  le détail d'une mission
+make bonus    le bonus A (les paires exactes)
+
 make up       démarre PostgreSQL et Adminer (http://localhost:8081)
 make run      lance le serveur
 make seed     peuple la base — options via `go run ./cmd/seed -h`
-make test     lance les tests
+make test     lance tous les tests d'un coup
 make fmt      formate le code (gofmt est obligatoire en Go)
 make psql     shell SQL sur la base
 make down     arrête les conteneurs
 make reset    détruit la base et ses données
+make help     liste toutes les commandes
 ```
+
+Les tests utilisent `-count=1` : sans ça, Go peut resservir le résultat d'un
+test précédent au lieu de le relancer.
