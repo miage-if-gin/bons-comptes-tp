@@ -9,6 +9,11 @@ doit combien à qui — est à écrire.** C'est l'objet du TP.
 
 ---
 
+## Documents
+
+- **[Installation](docs/installation.md)** — à faire avant la séance, 20 minutes.
+- **[Sujet du TP](docs/sujet-tp.pdf)** — les quatre missions, les indices et les solutions.
+
 ## Avant la séance
 
 | Prérequis | Version | Vérifier |
